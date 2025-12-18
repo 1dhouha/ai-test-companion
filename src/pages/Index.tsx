@@ -1,4 +1,3 @@
-import { useState, useCallback } from 'react';
 import Header from '@/components/Header';
 import InputPanel from '@/components/InputPanel';
 import TestCasesTable from '@/components/TestCasesTable';
@@ -6,141 +5,23 @@ import StatsPanel from '@/components/StatsPanel';
 import ConsolePanel from '@/components/ConsolePanel';
 import ResultsChart from '@/components/ResultsChart';
 import ReportPanel from '@/components/ReportPanel';
-import { TestCase, LogEntry } from '@/types/test';
+import { useTestRunner } from '@/hooks/useTestRunner';
 
 const Index = () => {
-  const [testCases, setTestCases] = useState<TestCase[]>([]);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isRunning, setIsRunning] = useState(false);
-  const [currentUrl, setCurrentUrl] = useState('');
-  const [currentUserStory, setCurrentUserStory] = useState('');
-
-  const addLog = useCallback((level: LogEntry['level'], message: string) => {
-    setLogs(prev => [...prev, { timestamp: new Date(), level, message }]);
-  }, []);
+  const {
+    testCases,
+    logs,
+    isGenerating,
+    isRunning,
+    currentUrl,
+    currentUserStory,
+    generateTests,
+    runTests,
+    clearLogs,
+  } = useTestRunner();
 
   const handleGenerate = async (url: string, userStory: string, customPrompt: string) => {
-    setIsGenerating(true);
-    setCurrentUrl(url);
-    setCurrentUserStory(userStory);
-    addLog('info', `Démarrage de la génération pour ${url}`);
-    addLog('info', `User Story: "${userStory.substring(0, 50)}..."`);
-
-    // Simulation de génération IA (à connecter avec votre backend Python)
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    const mockTestCases: TestCase[] = [
-      {
-        id: '001',
-        name: 'Connexion avec identifiants valides',
-        description: 'Vérifier que l\'utilisateur peut se connecter avec des identifiants corrects',
-        type: 'nominal',
-        steps: [
-          'Naviguer vers la page de connexion',
-          'Entrer un email valide',
-          'Entrer un mot de passe valide',
-          'Cliquer sur le bouton "Se connecter"',
-        ],
-        expectedResult: 'L\'utilisateur est redirigé vers le dashboard',
-        status: 'pending',
-      },
-      {
-        id: '002',
-        name: 'Connexion avec email invalide',
-        description: 'Vérifier le comportement avec un format d\'email incorrect',
-        type: 'edge_case',
-        steps: [
-          'Naviguer vers la page de connexion',
-          'Entrer un email mal formaté (ex: "test@")',
-          'Cliquer sur "Se connecter"',
-        ],
-        expectedResult: 'Message d\'erreur "Email invalide"',
-        status: 'pending',
-      },
-      {
-        id: '003',
-        name: 'Connexion avec champs vides',
-        description: 'Vérifier la validation des champs obligatoires',
-        type: 'error',
-        steps: [
-          'Naviguer vers la page de connexion',
-          'Laisser tous les champs vides',
-          'Cliquer sur "Se connecter"',
-        ],
-        expectedResult: 'Messages d\'erreur pour champs requis',
-        status: 'pending',
-      },
-      {
-        id: '004',
-        name: 'Mot de passe incorrect',
-        description: 'Vérifier le comportement avec un mot de passe erroné',
-        type: 'error',
-        steps: [
-          'Entrer un email valide',
-          'Entrer un mot de passe incorrect',
-          'Cliquer sur "Se connecter"',
-        ],
-        expectedResult: 'Message d\'erreur "Identifiants incorrects"',
-        status: 'pending',
-      },
-      {
-        id: '005',
-        name: 'Test de timeout réseau',
-        description: 'Vérifier le comportement en cas de lenteur réseau',
-        type: 'edge_case',
-        steps: [
-          'Simuler une connexion lente',
-          'Tenter de se connecter',
-        ],
-        expectedResult: 'Indicateur de chargement visible, timeout géré',
-        status: 'pending',
-      },
-    ];
-
-    setTestCases(mockTestCases);
-    addLog('success', `${mockTestCases.length} cas de test générés avec succès`);
-    setIsGenerating(false);
-  };
-
-  const handleRunTests = async () => {
-    setIsRunning(true);
-    addLog('info', 'Démarrage de l\'exécution des tests Selenium...');
-
-    // Simulation d'exécution des tests (à connecter avec votre backend)
-    for (let i = 0; i < testCases.length; i++) {
-      const test = testCases[i];
-      
-      // Mettre à jour le statut en "running"
-      setTestCases(prev => prev.map((t, idx) => 
-        idx === i ? { ...t, status: 'running' as const } : t
-      ));
-      
-      addLog('info', `Exécution: ${test.name}`);
-      
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Simulation de résultat aléatoire
-      const passed = Math.random() > 0.3;
-      const duration = Math.floor(Math.random() * 2000) + 500;
-      
-      setTestCases(prev => prev.map((t, idx) => 
-        idx === i ? { 
-          ...t, 
-          status: passed ? 'passed' : 'failed',
-          duration,
-          error: passed ? undefined : 'Element not found: #login-button (TimeoutException)'
-        } : t
-      ));
-      
-      addLog(
-        passed ? 'success' : 'error',
-        `${test.name}: ${passed ? 'RÉUSSI' : 'ÉCHOUÉ'} (${duration}ms)`
-      );
-    }
-
-    addLog('success', 'Exécution des tests terminée');
-    setIsRunning(false);
+    await generateTests({ url, userStory, customPrompt });
   };
 
   const stats = {
@@ -181,7 +62,7 @@ const Index = () => {
           <div className="lg:col-span-1 space-y-6">
             <InputPanel
               onGenerate={handleGenerate}
-              onRunTests={handleRunTests}
+              onRunTests={runTests}
               isGenerating={isGenerating}
               isRunning={isRunning}
               hasTestCases={testCases.length > 0}
@@ -206,7 +87,7 @@ const Index = () => {
               />
               <ConsolePanel
                 logs={logs}
-                onClear={() => setLogs([])}
+                onClear={clearLogs}
               />
             </div>
             
